@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XMRig WebAssembly Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { color: #ff7f50; margin-bottom: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .panel {
+            background: #1a1a20;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .config-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            background: #0a0a0a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        button {
+            background: #ff7f50;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #ff9f70; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        #log-container {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #1a1a1a;
+        }
+        .log-time { color: #555; }
+        .log-net { color: #60a5fa; }
+        .log-cpu { color: #4ade80; }
+        .log-error { color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 XMRig WebAssembly</h1>
+        
+        <div class="panel">
+            <h3>Configuration</h3>
+            <div class="config-row">
+                <input type="text" id="wallet" placeholder="Wallet Address" style="flex: 2;">
+            </div>
+            <div class="config-row">
+                <input type="text" id="pool" value="wss://wrxproxy.qzz.io" placeholder="Pool" style="flex: 1;">
+                <input type="text" id="worker" placeholder="Worker Name" style="flex: 1;">
+                <select id="threads">
+                    <option value="1">1 Thread</option>
+                    <option value="2" selected>2 Threads</option>
+                    <option value="4">4 Threads</option>
+                    <option value="6">6 Threads</option>
+                    <option value="8">8 Threads</option>
+                </select>
+            </div>
+            <div class="config-row">
+                <button id="startBtn" onclick="startMining()">Start Mining</button>
+                <button id="stopBtn" onclick="stopMining()" disabled>Stop</button>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3>Statistics</h3>
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-value" id="hashrate">0</div>
+                    <div class="stat-label">H/s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="accepted">0</div>
+                    <div class="stat-label">Accepted</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="rejected">0</div>
+                    <div class="stat-label">Rejected</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="threads-active">0</div>
+                    <div class="stat-label">Threads</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3>Logs</h3>
+            <div id="log-container"></div>
+        </div>
+    </div>
+
+    <script src="../src/xmrig-wasm-wrapper.js"></script>
+    <script>
+        let miner = null;
+        
+        function log(msg, type = 'info') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        async function startMining() {
+            const wallet = document.getElementById('wallet').value;
+            const pool = document.getElementById('pool').value;
+            const worker = document.getElementById('worker').value || 'web-miner-' + Math.random().toString(36).substr(2, 6);
+            const threads = parseInt(document.getElementById('threads').value);
+            
+            if (!wallet) {
+                alert('Please enter a wallet address');
+                return;
+            }
+            
+            log('Initializing XMRig-WASM...');
+            
+            miner = new XMRigWASM({
+                pool: pool,
+                wallet: wallet,
+                worker: worker,
+                threads: threads
+            });
+            
+            miner.onHashrate = (hashrate) => {
+                document.getElementById('hashrate').textContent = hashrate.toFixed(1);
+            };
+            
+            miner.onShareAccepted = (accepted) => {
+                document.getElementById('accepted').textContent = accepted;
+            };
+            
+            miner.onShareRejected = (rejected) => {
+                document.getElementById('rejected').textContent = rejected;
+            };
+            
+            await miner.init();
+            miner.start();
+            
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('threads-active').textContent = threads;
+            
+            log('Mining started!');
+        }
+        
+        function stopMining() {
+            if (miner) {
+                miner.stop();
+                log('Mining stopped');
+            }
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('hashrate').textContent = '0';
+        }
+        
+        // Initial log
+        log('XMRig WebAssembly ready');
+        log('Configure settings and click Start Mining');
+    </script>
+</body>
+</html>
