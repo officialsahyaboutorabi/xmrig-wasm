@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XMRig WASM Embed Example</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .miner-widget {
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .miner-widget h3 {
+            margin-top: 0;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #22c55e;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .start { background: #22c55e; color: white; }
+        .stop { background: #ef4444; color: white; }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .hidden { display: none; }
+        #status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            background: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>XMRig WASM - Simple Embed Example</h1>
+    <p>This shows how to embed the miner in any webpage with minimal code.</p>
+
+    <div class="miner-widget">
+        <h3>⛏️ Web Miner</h3>
+        
+        <div id="setup">
+            <input type="text" id="wallet" placeholder="Your Monero wallet address" 
+                   value="47ucoYKmFAficWjA649pnZNcHWm3co87wipCLYLvTuvzhCcZahT1cSFhLaxZr8okVsZfCbjw236urEPbjbty2ZRWU5yeTxm">
+            <input type="text" id="pool" placeholder="Pool URL" value="wss://wrxproxy.qzz.io">
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="hashrate">0</div>
+                <div class="stat-label">H/s</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="shares">0</div>
+                <div class="stat-label">Shares</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="threads">2</div>
+                <div class="stat-label">Threads</div>
+            </div>
+        </div>
+
+        <button class="start" id="startBtn" onclick="startMining()">Start Mining</button>
+        <button class="stop hidden" id="stopBtn" onclick="stopMining()">Stop Mining</button>
+
+        <div id="status">Ready to mine</div>
+    </div>
+
+    <!-- Load the miner scripts -->
+    <script src="xmrig-web-miner.js"></script>
+    <script src="xmrig-wasm.js"></script>
+
+    <script>
+        // Global miner instance
+        let miner = null;
+
+        async function startMining() {
+            const wallet = document.getElementById('wallet').value;
+            const pool = document.getElementById('pool').value;
+
+            if (!wallet || wallet.length < 95) {
+                alert('Please enter a valid wallet address');
+                return;
+            }
+
+            // Create miner instance
+            miner = new XMRigWebMiner();
+
+            // Set up event listeners
+            miner.addEventListener('started', () => {
+                document.getElementById('status').textContent = 'Mining started!';
+                document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('stopBtn').classList.remove('hidden');
+            });
+
+            miner.addEventListener('stopped', () => {
+                document.getElementById('status').textContent = 'Mining stopped';
+                document.getElementById('startBtn').classList.remove('hidden');
+                document.getElementById('stopBtn').classList.add('hidden');
+            });
+
+            miner.addEventListener('share', () => {
+                document.getElementById('status').textContent = 'Share found! 🎉';
+                setTimeout(() => {
+                    if (miner.running) {
+                        document.getElementById('status').textContent = 'Mining...';
+                    }
+                }, 2000);
+            });
+
+            miner.addEventListener('stats', (e) => {
+                document.getElementById('hashrate').textContent = e.detail.hashrate.toFixed(1);
+                document.getElementById('shares').textContent = e.detail.sharesFound;
+            });
+
+            // Start mining
+            try {
+                document.getElementById('status').textContent = 'Initializing...';
+                await miner.start({
+                    pool: pool,
+                    wallet: wallet,
+                    threads: 2
+                });
+            } catch (e) {
+                document.getElementById('status').textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function stopMining() {
+            if (miner) {
+                miner.stop();
+            }
+        }
+
+        // Update thread count display
+        document.getElementById('threads').textContent = navigator.hardwareConcurrency || 2;
+    </script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XMRig WebAssembly Miner - Real RandomX</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e5;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        header {
+            text-align: center;
+            padding: 40px 0;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0a0a0f 100%);
+            border-bottom: 1px solid #333;
+        }
+        h1 { 
+            font-size: 2.5em; 
+            background: linear-gradient(90deg, #ff6b6b, #f9ca24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .subtitle { color: #888; font-size: 1.1em; }
+        .badge {
+            display: inline-block;
+            background: #4ade80;
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .panel {
+            background: #151520;
+            border: 1px solid #2a2a3a;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+        .panel h2 {
+            color: #60a5fa;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #888;
+            font-size: 14px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background: #0a0a0f;
+            border: 1px solid #3a3a4a;
+            border-radius: 8px;
+            color: #e0e0e5;
+            font-size: 15px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+        button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #ff6b6b, #f9ca24);
+            color: #000;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+        }
+        .btn-secondary {
+            background: #2a2a3a;
+            color: #e0e0e5;
+        }
+        .btn-secondary:hover {
+            background: #3a3a4a;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        .stat-card {
+            background: #0a0a0f;
+            border: 1px solid #2a2a3a;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: #0a0a0f;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        .status-dot.connected { background: #4ade80; box-shadow: 0 0 10px #4ade80; }
+        .status-dot.connecting { background: #f9ca24; animation: pulse 1s infinite; }
+        .status-dot.error { background: #ff6b6b; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .log-container {
+            background: #0a0a0f;
+            border: 1px solid #2a2a3a;
+            border-radius: 8px;
+            height: 250px;
+            overflow-y: auto;
+            padding: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #1a1a2a;
+        }
+        .log-time { color: #555; }
+        .log-net { color: #60a5fa; }
+        .log-hash { color: #4ade80; }
+        .log-share { color: #f9ca24; }
+        .log-error { color: #ff6b6b; }
+        .log-info { color: #888; }
+        .test-panel {
+            background: #0f1620;
+            border-color: #2a3a4a;
+        }
+        .btn-test {
+            background: #2563eb;
+            color: white;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🔥 XMRig WebAssembly</h1>
+            <p class="subtitle">Real RandomX algorithm running in your browser</p>
+            <span class="badge">✓ RandomX Enabled</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Configuration Panel -->
+        <div class="panel">
+            <h2>⚙️ Configuration</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Pool URL</label>
+                    <input type="text" id="pool" value="wss://wrxproxy.qzz.io" placeholder="wss://pool.example.com">
+                </div>
+                <div class="form-group">
+                    <label>Threads</label>
+                    <select id="threads">
+                        <option value="1">1 Thread</option>
+                        <option value="2" selected>2 Threads</option>
+                        <option value="4">4 Threads</option>
+                        <option value="6">6 Threads</option>
+                        <option value="8">8 Threads</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Wallet Address</label>
+                <input type="text" id="wallet" placeholder="47..." value="47ucoYKmFAficWjA649pnZNcHWm3co87wipCLYLvTuvzhCcZahT1cSFhLaxZr8okVsZfCbjw236urEPbjbty2ZRWU5yeTxm">
+            </div>
+            <div class="form-group">
+                <label>Worker Name</label>
+                <input type="text" id="worker" value="wasm-miner" style="max-width: 300px;">
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+                <button id="startBtn" class="btn-primary">Start Mining</button>
+                <button id="stopBtn" class="btn-secondary" disabled>Stop Mining</button>
+            </div>
+        </div>
+
+        <!-- Statistics Panel -->
+        <div class="panel">
+            <h2>📊 Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="hashrate">0.0</div>
+                    <div class="stat-label">H/s</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalHashes">0</div>
+                    <div class="stat-label">Total Hashes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="shares">0</div>
+                    <div class="stat-label">Shares</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="difficulty">0</div>
+                    <div class="stat-label">Difficulty</div>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Ready to mine</span>
+                </div>
+                <span id="jobInfo" style="color: #666; font-size: 14px;">No active job</span>
+            </div>
+        </div>
+
+        <!-- RandomX Test Panel -->
+        <div class="panel test-panel">
+            <h2>🧪 RandomX Test</h2>
+            <p style="color: #888; margin-bottom: 16px;">Verify the RandomX implementation is working correctly</p>
+            <div class="form-group">
+                <label>Seed Hash (hex)</label>
+                <input type="text" id="testSeed" value="0000000000000000000000000000000000000000000000000000000000000000" maxlength="64">
+            </div>
+            <div class="form-group">
+                <label>Data (hex)</label>
+                <input type="text" id="testData" value="00000000000000000000000000000000000000000000000000000000000000000000000000000000" maxlength="80">
+            </div>
+            <button id="testBtn" class="btn-test">Run RandomX Test</button>
+            <div id="testResult" class="hidden" style="margin-top: 16px; padding: 12px; background: #0a0a0f; border-radius: 8px; font-family: monospace;"></div>
+        </div>
+
+        <!-- Logs Panel -->
+        <div class="panel">
+            <h2>📝 Logs</h2>
+            <div class="log-container" id="logs"></div>
+        </div>
+    </div>
+
+    <script src="xmrig-web-miner.js"></script>
+    <script src="xmrig-wasm.js"></script>
+    <script>
+        const miner = new XMRigWebMiner();
+        const logs = document.getElementById('logs');
+        
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            
+            const typeClass = {
+                'net': 'log-net',
+                'hash': 'log-hash',
+                'share': 'log-share',
+                'error': 'log-error'
+            }[type] || 'log-info';
+            
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="${typeClass}">${message}</span>`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+            
+            while (logs.children.length > 100) {
+                logs.removeChild(logs.firstChild);
+            }
+        }
+
+        function updateStatus(status) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            
+            dot.className = 'status-dot';
+            
+            switch(status) {
+                case 0:
+                    text.textContent = 'Disconnected';
+                    break;
+                case 1:
+                    dot.classList.add('connecting');
+                    text.textContent = 'Connecting...';
+                    break;
+                case 2:
+                    dot.classList.add('connected');
+                    text.textContent = 'Connected & Mining';
+                    break;
+            }
+        }
+
+        function updateStats() {
+            const stats = miner.getStats();
+            document.getElementById('hashrate').textContent = stats.hashrate.toFixed(1);
+            document.getElementById('totalHashes').textContent = stats.totalHashes.toLocaleString();
+            document.getElementById('shares').textContent = stats.sharesFound;
+            updateStatus(stats.connectionStatus);
+        }
+
+        // Event listeners
+        miner.addEventListener('ready', () => {
+            addLog('WASM module loaded successfully', 'info');
+            addLog('RandomX implementation ready', 'hash');
+        });
+
+        miner.addEventListener('starting', (e) => {
+            addLog(`Connecting to ${e.detail.pool}...`, 'net');
+        });
+
+        miner.addEventListener('started', () => {
+            addLog('Mining started!', 'hash');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        });
+
+        miner.addEventListener('stopped', () => {
+            addLog('Mining stopped', 'info');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            updateStatus(0);
+        });
+
+        miner.addEventListener('job', (e) => {
+            const { height, difficulty } = e.detail;
+            addLog(`New job: height=${height}, diff=${difficulty}`, 'net');
+            document.getElementById('jobInfo').textContent = `Block ${height} | Diff ${difficulty.toLocaleString()}`;
+            document.getElementById('difficulty').textContent = difficulty.toLocaleString();
+        });
+
+        miner.addEventListener('share', () => {
+            addLog('Share found!', 'share');
+        });
+
+        miner.addEventListener('stats', () => {
+            updateStats();
+        });
+
+        // Button handlers
+        document.getElementById('startBtn').onclick = async () => {
+            try {
+                const config = {
+                    pool: document.getElementById('pool').value,
+                    wallet: document.getElementById('wallet').value,
+                    worker: document.getElementById('worker').value,
+                    threads: parseInt(document.getElementById('threads').value)
+                };
+                
+                await miner.start(config);
+            } catch (e) {
+                addLog(`Error: ${e.message}`, 'error');
+            }
+        };
+
+        document.getElementById('stopBtn').onclick = () => {
+            miner.stop();
+        };
+
+        document.getElementById('testBtn').onclick = async () => {
+            const seed = document.getElementById('testSeed').value;
+            const data = document.getElementById('testData').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            try {
+                addLog('Running RandomX test...', 'info');
+                await miner.testRandomX(seed, data);
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = '<span style="color: #4ade80;">✓ RandomX test passed! Check console for hash output.</span>';
+                addLog('RandomX test completed successfully', 'hash');
+            } catch (e) {
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = `<span style="color: #ff6b6b;">✗ Test failed: ${e.message}</span>`;
+                addLog(`RandomX test failed: ${e.message}`, 'error');
+            }
+        };
+
+        // Initialize
+        addLog('Loading XMRig WebAssembly...', 'info');
+        miner.init().catch(e => {
+            addLog(`Failed to load: ${e.message}`, 'error');
+        });
+    </script>
+</body>
+</html>
