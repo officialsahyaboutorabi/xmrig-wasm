@@ -2,120 +2,304 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>XMRig WASM Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XMRig WebAssembly Miner v2</title>
     <style>
-        body { 
-            background: #0a0a0a; 
-            color: #e0e0e0; 
-            font-family: monospace;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
             padding: 20px;
+            line-height: 1.6;
         }
+        h1 { color: #ff7f50; margin-bottom: 10px; }
+        h2 { color: #60a5fa; margin: 20px 0 10px; font-size: 1.1em; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .panel {
+            background: #1a1a20;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .config-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            background: #0a0a0a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        input { flex: 1; min-width: 200px; }
         button {
             background: #ff7f50;
+            color: #000;
             border: none;
-            padding: 10px 20px;
-            margin: 5px;
             cursor: pointer;
             font-weight: bold;
+            min-width: 120px;
         }
-        button:disabled { background: #555; }
-        .stat {
-            margin: 10px 0;
-            padding: 10px;
-            background: #1a1a20;
+        button:hover { background: #ff9f70; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .status-connected { color: #4ade80; }
+        .status-disconnected { color: #f87171; }
+        .status-connecting { color: #fbbf24; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: #0a0a0a;
+            padding: 15px;
             border-radius: 4px;
+            text-align: center;
+            border: 1px solid #333;
         }
-        #log {
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        #log-container {
             background: #0a0a0a;
             border: 1px solid #333;
+            border-radius: 4px;
             padding: 10px;
-            height: 200px;
+            height: 300px;
             overflow-y: auto;
             font-size: 12px;
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #1a1a1a;
+        }
+        .log-time { color: #555; }
+        .log-net { color: #60a5fa; }
+        .log-cpu { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-info { color: #888; }
+        .info-box {
+            background: #0a0a0a;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
         }
     </style>
 </head>
 <body>
-    <h1>🔥 XMRig WebAssembly Test</h1>
-    
-    <button id="startBtn">Start Mining</button>
-    <button id="stopBtn" disabled>Stop</button>
-    
-    <div class="stat">
-        <div>Hashrate: <span id="hashrate">0</span> H/s</div>
-        <div>Total Hashes: <span id="total">0</span></div>
-        <div>Shares: <span id="shares">0</span></div>
-        <div>Running: <span id="running">No</span></div>
+    <div class="container">
+        <h1>🔥 XMRig WebAssembly v2</h1>
+        <p style="color: #888; margin-bottom: 20px;">Stratum-enabled miner running in your browser</p>
+        
+        <div class="panel">
+            <h2>Pool Configuration</h2>
+            <div class="config-row">
+                <label>Pool:</label>
+                <input type="text" id="pool" value="wss://wrxproxy.qzz.io" placeholder="wss://pool.example.com" style="flex: 2;">
+            </div>
+            <div class="config-row">
+                <label>Wallet:</label>
+                <input type="text" id="wallet" value="47ucoYKmFAficWjA649pnZNcHWm3co87wipCLYLvTuvzhCcZahT1cSFhLaxZr8okVsZfCbjw236urEPbjbty2ZRWU5yeTxm" placeholder="Your Monero wallet address">
+            </div>
+            <div class="config-row">
+                <label>Worker:</label>
+                <input type="text" id="worker" placeholder="worker-name" value="wasm-miner-1" style="flex: 1;">
+                <label>Threads:</label>
+                <select id="threads" style="width: 100px;">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="4">4</option>
+                    <option value="6">6</option>
+                    <option value="8">8</option>
+                </select>
+            </div>
+            <div class="config-row">
+                <button id="startBtn">Start Mining</button>
+                <button id="stopBtn" disabled>Stop</button>
+            </div>
+            <div class="info-box">
+                <div>Status: <span id="connStatus" class="status-disconnected">● Disconnected</span></div>
+                <div id="jobInfo" style="margin-top: 5px;">No active job</div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>Statistics</h2>
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-value" id="hashrate">0.0</div>
+                    <div class="stat-label">H/s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="total">0</div>
+                    <div class="stat-label">Total Hashes</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="shares">0</div>
+                    <div class="stat-label">Shares Found</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="diff">0</div>
+                    <div class="stat-label">Difficulty</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>Connection Logs</h2>
+            <div id="log-container"></div>
+        </div>
     </div>
-    
-    <div id="log"></div>
 
     <script>
         let Module = null;
         let updateInterval = null;
+        let isRunning = false;
         
-        function log(msg) {
-            const div = document.getElementById('log');
+        function log(msg, type = 'info') {
+            const container = document.getElementById('log-container');
             const entry = document.createElement('div');
-            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            div.appendChild(entry);
-            div.scrollTop = div.scrollHeight;
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            
+            let colorClass = 'log-info';
+            if (type === 'net') colorClass = 'log-net';
+            if (type === 'cpu') colorClass = 'log-cpu';
+            if (type === 'error') colorClass = 'log-error';
+            
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="${colorClass}">${msg}</span>`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Keep only last 100 entries
+            while (container.children.length > 100) {
+                container.removeChild(container.firstChild);
+            }
+        }
+        
+        function updateConnectionStatus(status) {
+            const el = document.getElementById('connStatus');
+            if (status === 0) {
+                el.className = 'status-disconnected';
+                el.textContent = '● Disconnected';
+            } else if (status === 1) {
+                el.className = 'status-connecting';
+                el.textContent = '● Connecting...';
+            } else if (status === 2) {
+                el.className = 'status-connected';
+                el.textContent = '● Connected';
+            }
         }
         
         function updateStats() {
-            if (!Module) return;
+            if (!Module || !isRunning) return;
             
-            const hashrate = Module.ccall('wasmGetHashrate', 'number', [], []);
-            const total = Module.ccall('wasmGetTotalHashes', 'number', [], []);
-            const shares = Module.ccall('wasmGetSharesFound', 'number', [], []);
-            const running = Module.ccall('wasmIsRunning', 'boolean', [], []);
-            
-            document.getElementById('hashrate').textContent = hashrate.toFixed(1);
-            document.getElementById('total').textContent = total;
-            document.getElementById('shares').textContent = shares;
-            document.getElementById('running').textContent = running ? 'Yes' : 'No';
+            try {
+                const hashrate = Module.ccall('wasmGetHashrate', 'number', [], []);
+                const total = Module.ccall('wasmGetTotalHashes', 'number', [], []);
+                const shares = Module.ccall('wasmGetSharesFound', 'number', [], []);
+                const status = Module.ccall('wasmGetConnectionStatus', 'number', [], []);
+                
+                document.getElementById('hashrate').textContent = hashrate.toFixed(1);
+                document.getElementById('total').textContent = total.toLocaleString();
+                document.getElementById('shares').textContent = shares;
+                
+                updateConnectionStatus(status);
+            } catch (e) {
+                console.error('Stats update error:', e);
+            }
         }
         
-        document.getElementById('startBtn').onclick = async () => {
-            if (!Module) {
-                log('Loading WASM module...');
-                Module = await XMRigModule();
-                log('Module loaded!');
+        // Global callbacks for WASM
+        window.onShareFound = function(threadId) {
+            log(`Share found by thread ${threadId}`, 'cpu');
+        };
+        
+        window.onJobReceived = function(height, difficulty) {
+            log(`New job: height=${height}, diff=${difficulty}`, 'net');
+            document.getElementById('jobInfo').textContent = 
+                `Job: height=${height}, diff=${difficulty.toLocaleString()}`;
+            document.getElementById('diff').textContent = difficulty.toLocaleString();
+        };
+        
+        document.getElementById('startBtn').onclick = async function() {
+            const pool = document.getElementById('pool').value;
+            const wallet = document.getElementById('wallet').value;
+            const worker = document.getElementById('worker').value || 'wasm-miner';
+            const threads = parseInt(document.getElementById('threads').value);
+            
+            if (!wallet || wallet.length < 95) {
+                alert('Please enter a valid Monero wallet address (95 characters)');
+                return;
             }
             
-            const wallet = "47ucoYKmFAficWjA649pnZNcHWm3co87wipCLYLvTuvzhCcZahT1cSFhLaxZr8okVsZfCbjw236urEPbjbty2ZRWU5yeTxm";
-            const pool = "wss://wrxproxy.qzz.io";
-            const threads = 2;
+            log('Loading XMRig-WASM module...', 'info');
             
-            const result = Module.ccall('wasmStartMining', 'number', 
-                ['string', 'string', 'number'], 
-                [pool, wallet, threads]
-            );
-            
-            if (result === 0) {
-                log('Mining started!');
-                document.getElementById('startBtn').disabled = true;
-                document.getElementById('stopBtn').disabled = false;
+            try {
+                if (!Module) {
+                    Module = await XMRigModule();
+                    log('Module loaded successfully', 'info');
+                }
                 
-                updateInterval = setInterval(updateStats, 1000);
-            } else {
-                log('Failed to start mining');
+                log(`Connecting to ${pool}...`, 'net');
+                updateConnectionStatus(1);
+                
+                const result = Module.ccall('wasmStartMining', 'number', 
+                    ['string', 'string', 'number'], 
+                    [pool, wallet, threads]
+                );
+                
+                if (result === 0) {
+                    isRunning = true;
+                    log('Mining started!', 'cpu');
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    
+                    updateInterval = setInterval(updateStats, 1000);
+                } else {
+                    log('Failed to start mining (code: ' + result + ')', 'error');
+                    updateConnectionStatus(0);
+                }
+            } catch (e) {
+                log('Error: ' + e.message, 'error');
+                console.error(e);
             }
         };
         
-        document.getElementById('stopBtn').onclick = () => {
+        document.getElementById('stopBtn').onclick = function() {
             if (Module) {
                 Module.ccall('wasmStopMining', null, [], []);
-                log('Mining stopped');
+                isRunning = false;
+                log('Mining stopped', 'info');
             }
             
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
             clearInterval(updateInterval);
+            updateConnectionStatus(0);
             updateStats();
         };
         
-        log('Page loaded. Click Start to begin.');
+        log('XMRig WebAssembly v2 loaded', 'info');
+        log('Configure pool settings and click Start Mining', 'info');
     </script>
     <script src="xmrig-wasm.js"></script>
 </body>
